@@ -1,0 +1,46 @@
+erDiagram
+    CATEGORY ||--o{ BOOK : "CATEGORIZES"
+    BOOK }|--|{ AUTHOR : "WRITTEN_BY"
+    BOOK ||--o{ BOOK_COPY : "HAS_COPIES"
+    READER ||--o{ LOAN : "BORROWS"
+    BOOK_COPY ||--o{ LOAN : "IS_BORROWED_IN"
+
+    CATEGORY {
+        UUID category_id PK
+        string category_name
+    }
+
+    BOOK {
+        UUID book_id PK
+        UUID category_id FK
+        string isbn
+        string title
+        int publication_year
+    }
+
+    AUTHOR {
+        UUID author_id PK
+        string author_name
+    }
+
+    BOOK_COPY {
+        UUID copy_id PK
+        UUID book_id FK
+        string status
+    }
+
+    READER {
+        UUID reader_id PK
+        string full_name
+        string phone
+        string email
+    }
+
+    LOAN {
+        UUID loan_id PK
+        UUID reader_id FK
+        UUID copy_id FK
+        date issue_date
+        date due_date
+        date return_date
+    }
