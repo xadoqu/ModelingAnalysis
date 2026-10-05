@@ -1,4 +1,4 @@
-Attributes
+# Attributes
   Reader - Читач:
   	reader_id - унікальний айді читача (PK, UUID)
   	full_name - повний ПІБ (string)
@@ -28,14 +28,14 @@ Attributes
   	due_date - планованна дата повернення (date)
   	return_date - фактична дата повернення (date, optional)
 
-Relationships
+# Relationships
   Category 1:N Book
   Book N:M Author
   Book 1:N BookCopy
   Reader 1:N Loan
   BookCopy 1:N Loan
 
-Acceptance Criteria
+# Acceptance Criteria
   Normalisation:
     Модель відповідає вимогам 3NF
     
