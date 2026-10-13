@@ -1,5 +1,6 @@
-# ER-Diagram
-Сгенерувати ER-діаграму на мові Mermaid за атрибутами та зв'язками:
+## 1. ER DIAGRAM
+> "Згенеруй концептуальну ER-модель для системи управління бібліотекою на основі специфікації spec.md у синтаксисі Mermaid erDiagram. Не використовуй проміжні таблиці для N:M."
+
 Reader:
 reader_id (PK, UUID)
 full_name (string)
@@ -39,3 +40,8 @@ Book N:M Author
 Book 1:N BookCopy
 Reader 1:N Loan
 BookCopy 1:N Loan
+
+## Що відхилено або виправлено:
+  1. Початково AI запропонував поле publish_year замість publication_year. Відхилено, повернуто publication_year згідно зі spec.
+  2. Початково AI згенерував відсутність відображення обов'язковості для return_date. Уточнено бізнес-логіку: return_date є optional (null).
+  3. Перевірено сутність Loan - залишено як асоціативну сутність, оскільки вона має власні часові атрибути.
