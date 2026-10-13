@@ -1,9 +1,9 @@
 erDiagram
-    CATEGORY ||--o{ BOOK : "CATEGORIZES"
-    BOOK }|--|{ AUTHOR : "WRITTEN_BY"
-    BOOK ||--o{ BOOK_COPY : "HAS_COPIES"
-    READER ||--o{ LOAN : "BORROWS"
-    BOOK_COPY ||--o{ LOAN : "IS_BORROWED_IN"
+    CATEGORY ||--o{ BOOK : "categorizes"
+    BOOK }o--|{ AUTHOR : "written_by"
+    BOOK ||--o{ BOOK_COPY : "has_copies"
+    READER ||--o{ LOAN : "borrows"
+    BOOK_COPY ||--o{ LOAN : "is_borrowed_in"
 
     CATEGORY {
         UUID category_id PK
@@ -13,8 +13,8 @@ erDiagram
     BOOK {
         UUID book_id PK
         UUID category_id FK
-        string isbn
         string title
+        string isbn
         int publication_year
     }
 
@@ -26,7 +26,7 @@ erDiagram
     BOOK_COPY {
         UUID copy_id PK
         UUID book_id FK
-        string status
+        string status "available|borrowed|damaged"
     }
 
     READER {
@@ -42,5 +42,5 @@ erDiagram
         UUID copy_id FK
         date issue_date
         date due_date
-        date return_date
+        date return_date "nullable"
     }
