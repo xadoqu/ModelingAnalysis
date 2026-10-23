@@ -21,7 +21,7 @@
   	* book_id - посилання на книгу (FK, UUID)
   	* status - поточний стан копії (string) ("available", "borrowed", "damaged")
   * Loan - Видача:
-  	* loan_id - унікалтний айді видачи (PK, UUID)
+  	* loan_id - унікальний айді видачи (PK, UUID)
   	* reader_id - посилання на читача (FK, UUID)
   	* copy_id - посилання на копію (FK, UUID)
   	* issue_date - дата видачі книги (date)
