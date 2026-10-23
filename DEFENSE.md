@@ -6,27 +6,78 @@
 # 1. Що просили в AI
 Усі промпти, відповіді та мої правки збережено в ai/prompt. Завданням було згенерувати Mermaid-діаграму за специфікацією без зайвих сполучних таблиць.
   
-# 2. Чому 3NF
-* Немає залежності між неключевими полями.
+## 2. Ключове рішення (ADR)
+Ключове архітектурне рішення про розділення абстрактної книги та її фізичного примірника задокументовано у форматі MADR:
+[`adr/0001-separate-book-and-bookcopy.md`](adr/0001-separate-book-and-bookcopy.md).
 
 # 3. Топ-3 виправлених розбіжностей (spec - модель)
 
 Провів аудит моделі та відкоригував розбіжності через оновлення специфікації та окремі коміти:
 
-| № | Що було не так | Як виправив |
-| :- | :--- | :--- |
-| 1 | Різні назви поля року видання (publish_year та publication_year). | Виправив на publication_year у spec.md та діаграмі. | 
-| 2 | Поля phone та email йшли в один рядок у специфікації. | Розділив на два окремих атрибути для атомарності. | 
-| 3 | У spec не було розписано обов'язковість зв'язків та опціональність return_date. | Додав детальний опис кардинальності та обов'язковості в spec.md. | 
-SHA: 89c9f55 
+| № | Пункт у spec.md | Опис розбіжності | Як усунуто | SHA зміни spec.md | SHA зміни діаграми |
+| :- | :--- | :--- | :--- | :--- | :--- |
+| 1 | §2, п. 2 (Book ↔ Author) | У первинній діаграмі стояло `}|--|{` (автор обов'язково має книгу). За spec.md автор може існувати без прив'язаних книг (0..N). | Описано зв'язок у spec.md та змінено кардинальність на `BOOK }o--|{ AUTHOR`. | 4d74f7c | 89c9f55 |
+| 2 | §1, п. 6 (return_date) | У первинній діаграмі AI поле return_date було обов'язковим. | Зафіксовано опціональність (null) у spec.md та додано позначку "nullable" на діаграмі. | 4d74f7c | 89c9f55 |
+| 3 | §1, п. 5 (status) | На первинній діаграмі AI тип був вказаний як загальний string status. | Уточнено список переліку у spec.md та додано підказку `"available|borrowed|damaged"` на діаграмі. | 4d74f7c | 89c9f55 |
 
-# 4. Сінхронізація
-| Сутність | spec.md | er-diagram.mmd |
-| ----------- | ----------- | ----------- |
-| Reader   | reader_id, full_name, phone, email   | reader_id, full_name, phone, email    |
-| Book   | book_id, title, isbn, publication_year, category_id    | book_id, title, isbn, publication_year, category_id    |
-| Category  | category_id, category_name    | category_id, category_name    |
-| Author  | author_id, author_name     | author_id, author_name    |
-| BookCopy   | copy_id, book_id, status    | copy_id, book_id, status    |
-| Loan   | loan_id, reader_id, copy_id, issue_date, due_date, return_date    | loan_id, reader_id, copy_id, issue_date, due_date, return_date    |
-| Типи  | PK/FK - UUID   | PK/FK - UUID    |
+# 4. Обґрунтування 3NF
+
+* Чому Category винесено в окрему сутність? Якщо зберігати назву категорії строкою в сутності Book, виникне дублювання даних для книг однієї категорії. Це створює аномалію оновлення. Винесення в Category забезпечує відсутність транзитивної залежності.
+* Чому Loan із трьома датами не порушує 3NF? Дати issue_date, due_date та return_date описують безпосередньо факт конкретної видачі примірника читачу. Вони є атомарними й повністю залежать від первинного ключа loan_id, а не від читача чи книжки.
+* Чому Book і Author без проміжної сутності? Зв'язок M:N є чисто концептуальним і не має власних атрибутів, тому моделюється напряму між сутностями.
+
+## 5. Перевірка (Аудит узгодженості)
+
+Перевірка специфікації та діаграми здійснювалася вручну за такими етапами:
+* Перевірка атомарності: Зафіксовано, що full_name, phone та email зберігаються як окремі атрибути.
+* Єдність ключів: Перевірено, що всі PK та FK мають єдиний тип UUID.
+* Байт-в-байт узгодженість: Кожну назву сутності та атрибута зі spec.md звірено з виходом er-diagram.mmd.
+
+```mermaid
+erDiagram
+    CATEGORY ||--o{ BOOK : "categorizes"
+    BOOK }o--|{ AUTHOR : "written_by"
+    BOOK ||--o{ BOOK_COPY : "has_copies"
+    READER ||--o{ LOAN : "borrows"
+    BOOK_COPY ||--o{ LOAN : "is_borrowed_in"
+
+    CATEGORY {
+        UUID category_id PK
+        string category_name
+    }
+
+    BOOK {
+        UUID book_id PK
+        UUID category_id FK
+        string title
+        string isbn
+        int publication_year
+    }
+
+    AUTHOR {
+        UUID author_id PK
+        string author_name
+    }
+
+    BOOK_COPY {
+        UUID copy_id PK
+        UUID book_id FK
+        string status "available|borrowed|damaged"
+    }
+
+    READER {
+        UUID reader_id PK
+        string full_name
+        string phone
+        string email
+    }
+
+    LOAN {
+        UUID loan_id PK
+        UUID reader_id FK
+        UUID copy_id FK
+        date issue_date
+        date due_date
+        date return_date "nullable"
+    }
+```
