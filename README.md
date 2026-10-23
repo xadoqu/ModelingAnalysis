@@ -57,3 +57,4 @@ erDiagram
         date due_date
         date return_date "nullable"
     }
+```
