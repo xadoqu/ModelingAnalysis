@@ -139,3 +139,133 @@ FR-01,Сценарій 1 (Успішна видача),UC_Issue
 FR-02,Сценарій 1 (Успішна видача),UC_Issue
 FR-03,Сценарій 2 (Відмова через борг),"UC_Issue, UC_CheckDebt"
 FR-04,Сценарій 3 (Недоступний примірник),UC_Issue
+
+## Учасники взаємодії
+* Librarian - актор, який ініціює операцію видачі примірника читачу.
+* LoanService - сервіс бізнес-логіки, який виконує перевірку боргів, перевірку статусу копії та оформлення видачі.
+* LoanRepository - репозиторій доступу до сутності Loan.
+* BookCopyRepository - репозиторій доступу до сутності BookCopy.
+
+## Sequence-діаграми для сценаріїв UC "Оформити видачу примірника читачу"
+* Сценарій 1: Успішна видача примірника читачу
+  * Кроки сценарію:
+    * Бібліотекар викликає issueBookCopy(readerId, copyId, days=14) у LoanService.
+    * LoanService отримує список активних видач читача через LoanRepository.getActiveLoansByReader(readerId).
+    * У циклі loop сервіс перевіряє кожну активну видачу (returnDate == null) на протермінування (dueDate < currentDate).
+    * LoanService отримує примірник через BookCopyRepository.getCopyById(copyId).
+    * У блоці opt створюється запис Loan з returnDate = null, а статус BookCopy оновлюється на "borrowed".
+    * LoanService повертає бібліотекарю IssueResult(success=true, loanId).
+```
+sequenceDiagram
+    actor Librarian as Бібліотекар
+    participant Service as LoanService
+    participant LoanRepo as LoanRepository
+    participant CopyRepo as BookCopyRepository
+
+    Librarian->>Service: issueBookCopy(readerId, copyId, days=14)
+    activate Service
+
+    Service->>LoanRepo: getActiveLoansByReader(readerId)
+    activate LoanRepo
+    LoanRepo-->>Service: activeLoansList
+    deactivate LoanRepo
+
+    loop Перевірка кожної активної видачі (returnDate == null)
+        Service->>Service: isOverdue(loan.dueDate, currentDate)
+    end
+
+    Service->>CopyRepo: getCopyById(copyId)
+    activate CopyRepo
+    CopyRepo-->>Service: bookCopy (status="available")
+    deactivate CopyRepo
+
+    opt Примірник доступний і боргів немає
+        Service->>LoanRepo: createLoan(readerId, copyId, issueDate, dueDate)
+        activate LoanRepo
+        LoanRepo-->>Service: loanId
+        deactivate LoanRepo
+
+        Service->>CopyRepo: updateStatus(copyId, "borrowed")
+        activate CopyRepo
+        CopyRepo-->>Service: true
+        deactivate CopyRepo
+    end
+
+    Service-->>Librarian: IssueResult(success=true, loanId)
+    deactivate Service
+```
+* Сценарій 2: Відмова у видачі через наявність боргів у читача
+  * Кроки сценарію:
+    * Бібліотекар викликає issueBookCopy(readerId, copyId, days=14) у LoanService.
+    * LoanService запитує активні видачі читача через LoanRepository.getActiveLoansByReader(readerId).
+    * У циклі loop перевіряється кожна видача з returnDate == null і виявляється протермінована книга.
+    * У блоці alt спрацьовує гілка hasOverdue == true: сервіс перериває видачу та повертає бібліотекарю ErrorResult("Reader has overdue loans").
+```
+sequenceDiagram
+    actor Librarian as Бібліотекар
+    participant Service as LoanService
+    participant LoanRepo as LoanRepository
+    participant CopyRepo as BookCopyRepository
+
+    Librarian->>Service: issueBookCopy(readerId, copyId, days=14)
+    activate Service
+
+    Service->>LoanRepo: getActiveLoansByReader(readerId)
+    activate LoanRepo
+    LoanRepo-->>Service: activeLoansList
+    deactivate LoanRepo
+
+    loop Перевірка протермінувань (returnDate == null)
+        Service->>Service: checkOverdue(loan)
+    end
+
+    alt Знайдено протерміновану книгу (hasOverdue == true)
+        Service-->>Librarian: ErrorResult("Reader has overdue loans")
+    else Боргів немає
+        Service->>CopyRepo: getCopyById(copyId)
+        activate CopyRepo
+        CopyRepo-->>Service: bookCopy
+        deactivate CopyRepo
+        Service-->>Librarian: ContinueProcessing
+    end
+
+    deactivate Service
+```
+* Сценарій 3: Відмова у видачі через недоступність примірника
+  * Кроки сценарію:
+    * Бібліотекар викликає issueBookCopy(readerId, copyId, days=14) у LoanService.
+    * LoanService перевіряє активні видачі через LoanRepository.getActiveLoansByReader(readerId) - протермінувань немає.
+    * LoanService отримує стан примірника через BookCopyRepository.getCopyById(copyId) і отримує статус "damaged".
+    * У блоці alt спрацьовує гілка bookCopy.status != "available": сервіс повертає бібліотекарю ErrorResult("Copy is not available for loan") без створення запису Loan.
+```
+sequenceDiagram
+    actor Librarian as Бібліотекар
+    participant Service as LoanService
+    participant LoanRepo as LoanRepository
+    participant CopyRepo as BookCopyRepository
+
+    Librarian->>Service: issueBookCopy(readerId, copyId, days=14)
+    activate Service
+
+    Service->>LoanRepo: getActiveLoansByReader(readerId)
+    activate LoanRepo
+    LoanRepo-->>Service: [] (боргів немає)
+    deactivate LoanRepo
+
+    Service->>CopyRepo: getCopyById(copyId)
+    activate CopyRepo
+    CopyRepo-->>Service: bookCopy (status="damaged")
+    deactivate CopyRepo
+
+    alt bookCopy.status != "available"
+        Service-->>Librarian: ErrorResult("Copy is not available for loan")
+    else bookCopy.status == "available"
+        Service->>LoanRepo: createLoan(readerId, copyId, issueDate, dueDate)
+        activate LoanRepo
+        LoanRepo-->>Service: loanId
+        deactivate LoanRepo
+        Service-->>Librarian: IssueResult(success=true, loanId)
+    end
+
+    deactivate Service
+```
